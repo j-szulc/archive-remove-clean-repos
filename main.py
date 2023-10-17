@@ -7,14 +7,7 @@ import sys
 import click
 import subprocess as sp
 
-def dry_remove(path, remove=False):
-    if os.path.exists(path):
-        prompt = "Would remove " if not remove else "Removing "
-        print(prompt + path)
-        if remove:
-            sp.run(["rm", "-rf", path])
-
-def clean_repo(path, remove):
+def clean_repo(path):
 
     def action_manual():
         if click.confirm("Repo is not clean do you want to clean it up manually?"):
@@ -26,17 +19,19 @@ def clean_repo(path, remove):
             sp.run(["git", "commit", "-m", "backup"], cwd=path)
             sp.run(['git', 'push'], cwd=path)
 
-    repo_clean_override = False
-
-    def action_override():
-        if click.confirm('Repo is not clean. Do you want to delete it anyway?'):
-            repo_clean_override = True
+    def action_delete():
+        if repo_clean():
+            prompt = f'Repo is clean. Do you want to delete: {path}?'
+        else:
+            prompt = f'Repo is not clean. Do you want to delete {path} anyway?'
+        if click.confirm(prompt):
+            shutil.rmtree(path)
 
     def repo_clean():
-        return repo_clean_override or not sp.check_output(['git', 'status', '--porcelain'], cwd=path)
+        return not sp.check_output(['git', 'status', '--porcelain'], cwd=path)
 
-    for action in [action_manual, action_backup, action_override]:
-        if repo_clean():
+    for action in [action_manual, action_backup, action_delete]:
+        if action != action_delete and repo_clean():
             break
         sp.run(["git", "status"], cwd=path)
         sp.run(["git", "remote", "get-url", "--all", "origin"], cwd=path)
@@ -44,14 +39,10 @@ def clean_repo(path, remove):
             sp.run(["dust", "-v", ".git"], cwd=path)
         action()
 
-    if repo_clean():
-        dry_remove(path, remove)
-
 
 @click.command()
 @click.argument("path")
-@click.option("--remove", "-r", is_flag=True, help="Do not perform a dry run.")
-def remove_uptodate_git_repos(path, remove=False):
+def remove_uptodate_git_repos(path):
     if not os.path.isdir(path):
         raise click.ClickException("Path is not a directory")
     for folder in os.listdir(path):
@@ -60,7 +51,7 @@ def remove_uptodate_git_repos(path, remove=False):
         if not os.path.isdir(os.path.join(path, folder, '.git')):
             print(f"Warning: {folder} is not a git repo", file=sys.stderr)
             continue
-        clean_repo(os.path.join(path, folder), remove)
+        clean_repo(os.path.join(path, folder))
 
 if __name__ == '__main__':
     remove_uptodate_git_repos()
