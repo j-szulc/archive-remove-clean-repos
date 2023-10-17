@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import sys
 
 import click
 import subprocess as sp
@@ -57,6 +58,7 @@ def remove_uptodate_git_repos(path, remove=False):
         if not os.path.isdir(os.path.join(path, folder)):
             continue
         if not os.path.isdir(os.path.join(path, folder, '.git')):
+            print(f"Warning: {folder} is not a git repo", file=sys.stderr)
             continue
         clean_repo(os.path.join(path, folder), remove)
 
