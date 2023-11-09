@@ -10,12 +10,16 @@ import subprocess as sp
 def clean_repo(path):
 
     def action_manual():
-        if click.confirm("Repo is not clean do you want to clean it up manually?"):
+        if click.confirm(f"Repo {path} is not clean do you want to clean it up manually?"):
             sp.run(["zsh"], cwd=path)
 
     def action_backup():
-        if click.confirm('Repo is not clean. Push a commit "backup" and continue?'):
-            sp.run(['git', 'add', '.'], cwd=path)
+        # check if forgit::add is installed
+        git_add_command = ["git", "add", "."]
+        if shutil.which("forgit::add") is not None:
+            git_add_command = ["forgit::add"]
+        if click.confirm(f'Repo {path} is not clean. Push a commit "backup" and continue?'):
+            sp.run(git_add_command, cwd=path)
             sp.run(["git", "commit", "-m", "backup"], cwd=path)
             sp.run(['git', 'push'], cwd=path)
 
@@ -32,7 +36,7 @@ def clean_repo(path):
 
     for action in [action_manual, action_backup, action_delete]:
         if action != action_delete and repo_clean():
-            break
+            continue
         sp.run(["git", "status"], cwd=path)
         sp.run(["git", "remote", "get-url", "--all", "origin"], cwd=path)
         if shutil.which("dust") is not None:
@@ -51,6 +55,7 @@ def remove_uptodate_git_repos(path):
         if not os.path.isdir(os.path.join(path, folder, '.git')):
             print(f"Warning: {folder} is not a git repo", file=sys.stderr)
             continue
+        print(f"Cleaning {folder}", file=sys.stderr)
         clean_repo(os.path.join(path, folder))
 
 if __name__ == '__main__':
